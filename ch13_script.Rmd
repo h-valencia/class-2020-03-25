@@ -34,25 +34,98 @@ x <- nes %>%
 
 **Prompt:** Let's try to understand things which are associated with `dvote`, which is (claiming to have cast) a vote for the Democratic candidate for President. Estimate two models (`z_old` and `z_stan`) which uses `gender` to explain `dvote`. `z_old` uses the standard `glm()` command. `z_stan()` uses `stan_glm()`. Interpret the results from both printing the simple model objects and for running `summary()` on them.
 
+```{r}
+z_old <- glm(dvote ~ gender, data = x, family = binomial)
+print(z_old)
+summary(z_old)
+```
+
+The -0.22 tells us that there is no more than -0.05 difference in the probability of voting democrat in the change from female to non-female. 
+
+
+```{r}
+z_stan <- stan_glm(dvote ~ gender, data = x, refresh = 0, family = "binomial")
+print(z_stan, digits = 2)
+summary(z_stan)
+```
+
+
 # Scene 3
 
 **Prompt:** For females, the intercept is -0.1. What does that mean? For men, it is -0.1 + (-0.2) = -0.3. What is the substance meaning of -0.1 and -0.3? 
+
 
 # Scene 4
 
 **Prompt:** Let's look more closely at the coefficent on `non-female`. Interpret what it means. Can you put its magnitude onto the same scale as the outcome? That is, what I really want to know iw how much more (less?) likely men are to vote for the Democrat than women.  (Don't forget the divide-by-4 rule.) Now, just using simple dplyr commands, confirm that this is, in fact, the case in the raw data.
 
+```{r}
+x %>%
+  group_by(gender) %>%
+  summarize(dvotes = sum(dvote), all = n()) %>%
+  mutate(per = dvotes/all)
+```
+
+
 # Scene 5
 
 **Prompt:** We have a model. Cool! Assume that we have new "data", a tibble with one row and one variable, `gender`, which is "female". What is the probability that this new person for vote Democratic?
+
+```{r}
+new <- tibble(gender = "female")
+```
+
+```{r}
+logit <- qlogis
+invlogit <- plogis
+
+# female
+invlogit(-0.14 + (-0.22)*1)
+
+# male
+invlogit(-0.14 + (-0.22)*0)
+```
+
 
 # Scene 6
 
 **Prompt:** So, with rstanarm models, at least, `predict()` doesn't (ever?) work. Instead, we need to use `posterior_linpred()`. But it sure is confusing! Continuing with our simple case of one new female observation, use `posterior_linpred()`, understand its outputs, and the provide a graphical display of those outputs. (Hint: Check the class of the output. It isn't a tibble!)
 
+```{r}
+
+# x axis: the distribution of the probability that the one female you select is going to vote democratic
+
+q6 <- posterior_linpred(newdata = new, object = z_stan)
+hist(q6)
+```
+
+
 # Scene 7
 
 **Prompt:** Estimate a new model of `dvote`, this time with two explanatory variables: `gender` and `real_ideo`. (Like last time, you should treat `real_ideo` as a continuous variable.) Redo most of the above explorations with this new model.
+
+```{r}
+q7 <- stan_glm(data = x, dvote ~ gender + real_ideo, refresh = 0, family = "binomial")
+print(q7, digits = 2)
+summary(q7)
+```
+```{r}
+# female with ideology 0
+invlogit(3.44)
+
+# female with ideology 1
+invlogit(3.44 + (-0.85))
+
+# female with ideology 7
+invlogit(3.44 + (-0.85)*7)
+
+# male with ideology 0
+invlogit(3.44 + (-0.15))
+
+# male with ideology 1
+invlogit(3.44 + (-0.15) + (-0.85))
+```
+
 
 # Scene 8
 
